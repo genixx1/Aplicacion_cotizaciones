@@ -1,6 +1,5 @@
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
-import 'package:flutter/services.dart' show rootBundle;
 
 Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
   final pdf = pw.Document();
@@ -12,14 +11,17 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
   final cotizacion = data['cotizacion'] as Map<String, dynamic>;
   final productos = data['productos'] as List<dynamic>;
 
-  // Cargar logo (si existe)
-  pw.ImageProvider? logo;
-  try {
-    final logoBytes = await rootBundle.load('assets/logo_novotrace.png');
-    logo = pw.MemoryImage(logoBytes.buffer.asUint8List());
-  } catch (e) {
-    // Si no hay logo, continuamos sin él
+  // Función para obtener símbolo de moneda
+  String obtenerSimboloMoneda(String moneda) {
+    if (moneda.contains("Soles")) return "S/";
+    if (moneda.contains("Dólares")) return "\$";
+    if (moneda.contains("Euros")) return "€";
+    return "S/";
   }
+
+  final simboloMoneda = obtenerSimboloMoneda(
+    cotizacion['moneda'] ?? 'Soles (S/)',
+  );
 
   pdf.addPage(
     pw.MultiPage(
@@ -31,28 +33,27 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Logo y datos empresa
+            // Datos empresa (sin logo)
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                if (logo != null)
-                  pw.Image(logo, width: 150, height: 60)
-                else
-                  pw.Text(
-                    cotizacion['empresa'] ?? 'NOVOTRACE S.A.C.',
-                    style: pw.TextStyle(
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                      color: azulOscuro,
-                    ),
+                pw.Text(
+                  cotizacion['empresa'] ?? 'NOVOTRACE S.A.C.',
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: azulOscuro,
                   ),
-                pw.SizedBox(height: 12),
+                ),
+                pw.SizedBox(height: 8),
                 _textoPequeno(
-                  cotizacion['direccion_empresa'] ?? '',
+                  cotizacion['direccion_empresa'] ?? 'RUC: 20603429622',
                   grisOscuro,
                 ),
-                _textoPequeno(cotizacion['telefono_empresa'] ?? '', grisOscuro),
-                _textoPequeno(cotizacion['email_empresa'] ?? '', grisOscuro),
+                _textoPequeno(
+                  cotizacion['email_empresa'] ?? 'jgutierrez@novotrace.com.pe',
+                  grisOscuro,
+                ),
               ],
             ),
 
@@ -139,10 +140,6 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
                   pw.SizedBox(height: 10),
                   _filaDetalle('Fecha:', cotizacion['fecha'] ?? ''),
                   _filaDetalle('Moneda:', cotizacion['moneda'] ?? ''),
-                  _filaDetalle(
-                    'Validez:',
-                    '${cotizacion['validez_dias'] ?? ''} días',
-                  ),
                 ],
               ),
             ),
@@ -161,7 +158,6 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
             0: const pw.FlexColumnWidth(4),
             1: const pw.FlexColumnWidth(1.5),
             2: const pw.FlexColumnWidth(2),
-            3: const pw.FlexColumnWidth(2),
           },
           children: [
             // Header
@@ -170,7 +166,6 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
               children: [
                 _celdaHeader('DESCRIPCIÓN'),
                 _celdaHeader('CANT.'),
-                _celdaHeader('P. UNITARIO'),
                 _celdaHeader('TOTAL'),
               ],
             ),
@@ -187,11 +182,7 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
                   _celdaProducto(p['nombre'] ?? ''),
                   _celdaProducto(p['cantidad'].toString(), centrado: true),
                   _celdaProducto(
-                    'S/ ${(p['precio_unitario'] as num).toStringAsFixed(2)}',
-                    centrado: true,
-                  ),
-                  _celdaProducto(
-                    'S/ ${(p['total'] as num).toStringAsFixed(2)}',
+                    '$simboloMoneda ${(p['total'] as num).toStringAsFixed(2)}',
                     centrado: true,
                     negrita: true,
                   ),
@@ -203,7 +194,7 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
 
         pw.SizedBox(height: 30),
 
-        // TOTALES
+        // TOTAL
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.end,
           children: [
@@ -214,39 +205,24 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
                 color: PdfColors.grey100,
                 borderRadius: pw.BorderRadius.circular(8),
               ),
-              child: pw.Column(
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  _filaTotal(
-                    'Subtotal:',
-                    'S/ ${(cotizacion['subtotal'] as num).toStringAsFixed(2)}',
+                  pw.Text(
+                    'TOTAL:',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: azulOscuro,
+                    ),
                   ),
-                  pw.SizedBox(height: 8),
-                  _filaTotal(
-                    'IGV (18%):',
-                    'S/ ${(cotizacion['igv'] as num).toStringAsFixed(2)}',
-                  ),
-                  pw.Divider(thickness: 1.5, color: grisOscuro),
-                  pw.SizedBox(height: 8),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'TOTAL:',
-                        style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                          color: azulOscuro,
-                        ),
-                      ),
-                      pw.Text(
-                        'S/ ${(cotizacion['total'] as num).toStringAsFixed(2)}',
-                        style: pw.TextStyle(
-                          fontSize: 20,
-                          fontWeight: pw.FontWeight.bold,
-                          color: azulOscuro,
-                        ),
-                      ),
-                    ],
+                  pw.Text(
+                    '$simboloMoneda ${(cotizacion['total'] as num).toStringAsFixed(2)}',
+                    style: pw.TextStyle(
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                      color: azulOscuro,
+                    ),
                   ),
                 ],
               ),
@@ -256,7 +232,7 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
 
         pw.SizedBox(height: 30),
 
-        // NOTAS COMERCIALES
+        // NOTAS COMERCIALES (solo si hay contenido)
         if (cotizacion['notas_comerciales'] != null &&
             (cotizacion['notas_comerciales'] as String).isNotEmpty) ...[
           _encabezadoSeccion('NOTAS COMERCIALES', azulOscuro),
@@ -282,6 +258,7 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
         pw.SizedBox(height: 15),
 
         pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Expanded(
               child: pw.Column(
@@ -290,68 +267,74 @@ Future<pw.Document> generarPDF(Map<String, dynamic> data) async {
                   _textoNegrita('BANCO DE CRÉDITO DEL PERÚ (BCP)'),
                   pw.SizedBox(height: 6),
                   _textoPequeno('Cuenta Soles: 19491893576091', grisOscuro),
-                  _textoPequeno('CCI: 002194918935760910', grisOscuro),
+                  _textoPequeno('CCI Soles: 002194918935760910', grisOscuro),
+                  _textoPequeno('Cuenta Dólares: 19491893582197', grisOscuro),
+                  _textoPequeno('CCI Dólares: 002194918935821979', grisOscuro),
+                  _textoPequeno('Titular: NOVOTRACE S.A.C.', grisOscuro),
                 ],
               ),
             ),
+            pw.SizedBox(width: 20),
             pw.Expanded(
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   _textoNegrita('BBVA PERÚ'),
                   pw.SizedBox(height: 6),
-                  _textoPequeno('Cuenta Soles: 001103233602005998', grisOscuro),
-                  _textoPequeno('Moneda: Soles', grisOscuro),
+                  _textoPequeno('Cuenta: 001103233602005998', grisOscuro),
+                  _textoPequeno('Moneda: Soles (PEN)', grisOscuro),
+                  _textoPequeno('Titular: NOVOTRACE S.A.C.', grisOscuro),
                 ],
               ),
             ),
           ],
         ),
-
-        pw.SizedBox(height: 40),
-
-        // FOOTER
-        pw.Container(
-          padding: const pw.EdgeInsets.all(15),
-          decoration: pw.BoxDecoration(
-            color: azulOscuro,
-            borderRadius: pw.BorderRadius.circular(8),
-          ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.center,
-            children: [
-              pw.Column(
-                children: [
-                  pw.Text(
-                    'novotrace.com.pe',
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                    'ventas@novotrace.com.pe',
-                    style: const pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ],
 
-      footer: (context) => pw.Container(
-        alignment: pw.Alignment.centerRight,
-        margin: const pw.EdgeInsets.only(top: 20),
-        child: pw.Text(
-          'Página ${context.pageNumber} de ${context.pagesCount}',
-          style: pw.TextStyle(fontSize: 9, color: grisOscuro),
-        ),
+      footer: (context) => pw.Column(
+        children: [
+          pw.SizedBox(height: 20),
+          // Footer azul con información de contacto
+          pw.Container(
+            padding: const pw.EdgeInsets.all(15),
+            decoration: pw.BoxDecoration(
+              color: azulOscuro,
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Column(
+                  children: [
+                    pw.Text(
+                      'novotrace.com.pe',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      cotizacion['email_empresa'] ??
+                          'jgutierrez@novotrace.com.pe',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          // Número de página
+          pw.Text(
+            'Página ${context.pageNumber} de ${context.pagesCount}',
+            style: pw.TextStyle(fontSize: 9, color: grisOscuro),
+          ),
+        ],
       ),
     ),
   );
@@ -435,18 +418,5 @@ pw.Widget _celdaProducto(
         fontWeight: negrita ? pw.FontWeight.bold : pw.FontWeight.normal,
       ),
     ),
-  );
-}
-
-pw.Widget _filaTotal(String label, String valor) {
-  return pw.Row(
-    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-    children: [
-      pw.Text(label, style: const pw.TextStyle(fontSize: 11)),
-      pw.Text(
-        valor,
-        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-      ),
-    ],
   );
 }

@@ -14,27 +14,19 @@ class NuevaCotizacion extends StatefulWidget {
 }
 
 class _NuevaCotizacionState extends State<NuevaCotizacion> {
-  // Controllers
+  // Controllers - DATOS FIJOS
   final empresaCtrl = TextEditingController(text: "NOVOTRACE S.A.C.");
-  final direccionEmpresaCtrl = TextEditingController(
-    text:
-        "Av. Cesar Vallejo Sector 2 Grupo 5 Manza H Lote 11, Villa El Salvador",
-  );
-  final telefonoCtrl = TextEditingController(text: "+51 987 654 321");
-  final emailCtrl = TextEditingController(text: "ventas@novotrace.com.pe");
+  final direccionEmpresaCtrl = TextEditingController(text: "RUC: 20603429622");
+  final emailCtrl = TextEditingController(text: "jgutierrez@novotrace.com.pe");
 
   final numeroCtrl = TextEditingController();
   final fechaCtrl = TextEditingController();
-  final monedaCtrl = TextEditingController(text: "Soles (S/)");
-  final validezCtrl = TextEditingController(text: "30");
+  String monedaSeleccionada = "Soles (S/)";
 
   final clienteCtrl = TextEditingController();
   final rucCtrl = TextEditingController();
   final direccionClienteCtrl = TextEditingController();
-  final notasCtrl = TextEditingController(
-    text:
-        "• Precios incluyen IGV\n• Tiempo de entrega: 5-7 días hábiles\n• Garantía: 12 meses",
-  );
+  final notasCtrl = TextEditingController();
 
   // Producto temporal
   final productoCtrl = TextEditingController();
@@ -43,6 +35,9 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
 
   List<Map<String, dynamic>> productos = [];
   bool mostrarVista = false;
+
+  // Contador para número de cotización
+  int numeroCotizacion = 3000;
 
   @override
   void initState() {
@@ -54,19 +49,17 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
   void _generarNumeroCotizacion() {
     final ahora = DateTime.now();
     numeroCtrl.text =
-        "COT-${ahora.year}-${ahora.month.toString().padLeft(2, '0')}${ahora.day.toString().padLeft(2, '0')}-${ahora.millisecondsSinceEpoch.toString().substring(8)}";
+        "COT-${ahora.year}-${ahora.month.toString().padLeft(2, '0')}${ahora.day.toString().padLeft(2, '0')}-${numeroCotizacion.toString()}";
+    numeroCotizacion++;
   }
 
   void _establecerFechaActual() {
     fechaCtrl.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
   }
 
-  double get subtotal {
+  double get total {
     return productos.fold(0, (sum, p) => sum + p['total']);
   }
-
-  double get igv => subtotal * 0.18;
-  double get total => subtotal + igv;
 
   void agregarProducto() {
     if (productoCtrl.text.isEmpty ||
@@ -158,13 +151,13 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
         'direccion_cliente': direccionClienteCtrl.text,
         'empresa': empresaCtrl.text,
         'direccion_empresa': direccionEmpresaCtrl.text,
-        'telefono_empresa': telefonoCtrl.text,
+        'telefono_empresa': '',
         'email_empresa': emailCtrl.text,
-        'moneda': monedaCtrl.text,
-        'validez_dias': validezCtrl.text,
+        'moneda': monedaSeleccionada,
+        'validez_dias': '',
         'notas_comerciales': notasCtrl.text,
-        'subtotal': subtotal,
-        'igv': igv,
+        'subtotal': total,
+        'igv': 0,
         'total': total,
         'fecha_creacion': DateTime.now().toIso8601String(),
       };
@@ -207,6 +200,7 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
                 clienteCtrl.clear();
                 rucCtrl.clear();
                 direccionClienteCtrl.clear();
+                notasCtrl.clear();
                 productos.clear();
                 productoCtrl.clear();
                 cantidadCtrl.clear();
@@ -236,6 +230,13 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  String _obtenerSimboloMoneda() {
+    if (monedaSeleccionada.contains("Soles")) return "S/";
+    if (monedaSeleccionada.contains("Dólares")) return "\$";
+    if (monedaSeleccionada.contains("Euros")) return "€";
+    return "S/";
   }
 
   @override
@@ -319,11 +320,6 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
           "Crear Cotización",
           style: Theme.of(context).textTheme.displayMedium,
         ),
-        const SizedBox(height: 8),
-        Text(
-          "Complete los datos para generar una cotización profesional",
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
         const SizedBox(height: 16),
         Container(height: 3, color: TemaApp.azulElectrico),
       ],
@@ -332,19 +328,13 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
 
   Widget _seccionEmpresa() {
     return _seccionConTitulo("Datos de la Empresa", Icons.business_rounded, [
-      InputField(label: "Empresa", controller: empresaCtrl),
-      InputField(label: "Dirección", controller: direccionEmpresaCtrl),
-      Row(
-        children: [
-          Expanded(
-            child: InputField(label: "Teléfono", controller: telefonoCtrl),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: InputField(label: "Email", controller: emailCtrl),
-          ),
-        ],
+      InputField(label: "Empresa", controller: empresaCtrl, readOnly: true),
+      InputField(
+        label: "RUC",
+        controller: direccionEmpresaCtrl,
+        readOnly: true,
       ),
+      InputField(label: "Email", controller: emailCtrl, readOnly: true),
     ]);
   }
 
@@ -358,18 +348,31 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
           controller: numeroCtrl,
           readOnly: true,
         ),
-        Row(
-          children: [
-            Expanded(
-              child: InputField(label: "Fecha", controller: fechaCtrl),
+        InputField(label: "Fecha", controller: fechaCtrl),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: DropdownButtonFormField<String>(
+            value: monedaSeleccionada,
+            decoration: const InputDecoration(
+              labelText: "Moneda",
+              filled: true,
+              fillColor: Colors.white,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InputField(label: "Moneda", controller: monedaCtrl),
-            ),
-          ],
+            items: const [
+              DropdownMenuItem(value: "Soles (S/)", child: Text("Soles (S/)")),
+              DropdownMenuItem(
+                value: "Dólares (\$)",
+                child: Text("Dólares (\$)"),
+              ),
+              DropdownMenuItem(value: "Euros (€)", child: Text("Euros (€)")),
+            ],
+            onChanged: (value) {
+              setState(() {
+                monedaSeleccionada = value!;
+              });
+            },
+          ),
         ),
-        InputField(label: "Validez (días)", controller: validezCtrl),
       ],
     );
   }
@@ -409,10 +412,7 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
             const SizedBox(width: 12),
             Expanded(
               flex: 3,
-              child: InputField(
-                label: "Precio Unitario (S/)",
-                controller: precioCtrl,
-              ),
+              child: InputField(label: "Precio Total", controller: precioCtrl),
             ),
           ],
         ),
@@ -463,62 +463,34 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _filaResumen("Subtotal:", subtotal),
-          const SizedBox(height: 8),
-          _filaResumen("IGV (18%):", igv),
-          const Divider(color: Colors.white38, thickness: 1, height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "TOTAL:",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                "S/ ${total.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          const Text(
+            "TOTAL:",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            "${_obtenerSimboloMoneda()} ${total.toStringAsFixed(2)}",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _filaResumen(String label, double valor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 15),
-        ),
-        Text(
-          "S/ ${valor.toStringAsFixed(2)}",
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _seccionNotas() {
     return _seccionConTitulo("Notas Comerciales", Icons.note_rounded, [
       InputField(
-        label: "Condiciones, garantías, tiempo de entrega...",
+        label: "Condiciones, garantías, tiempo de entrega... (Opcional)",
         controller: notasCtrl,
         maxLines: 5,
       ),
@@ -574,8 +546,7 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
               children: [
                 Expanded(flex: 3, child: _HeaderTabla("PRODUCTO")),
                 Expanded(flex: 1, child: _HeaderTabla("CANT.")),
-                Expanded(flex: 2, child: _HeaderTabla("P. UNIT.")),
-                Expanded(flex: 2, child: _HeaderTabla("TOTAL")),
+                Expanded(flex: 2, child: _HeaderTabla("P. TOTAL")),
                 SizedBox(width: 40),
               ],
             ),
@@ -638,14 +609,7 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              "S/ ${p['precio_unitario'].toStringAsFixed(2)}",
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              "S/ ${p['total'].toStringAsFixed(2)}",
+                              "${_obtenerSimboloMoneda()} ${p['total'].toStringAsFixed(2)}",
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
@@ -764,7 +728,25 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Image.asset("assets/logo_novotrace.png", height: 60),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      empresaCtrl.text,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: TemaApp.azulOscuro,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      direccionEmpresaCtrl.text,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    Text(emailCtrl.text, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -786,18 +768,10 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
             ),
             const Divider(height: 40, thickness: 2),
 
-            // Información empresa y cliente
+            // Información cliente
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _bloqueInfo("DE:", [
-                    empresaCtrl.text,
-                    direccionEmpresaCtrl.text,
-                    telefonoCtrl.text,
-                    emailCtrl.text,
-                  ]),
-                ),
                 Expanded(
                   child: _bloqueInfo("PARA:", [
                     clienteCtrl.text,
@@ -805,30 +779,27 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
                     direccionClienteCtrl.text,
                   ]),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            // Detalles cotización
-            Row(
-              children: [
-                _detalleCotizacion("Fecha", fechaCtrl.text),
-                const SizedBox(width: 24),
-                _detalleCotizacion("Moneda", monedaCtrl.text),
-                const SizedBox(width: 24),
-                _detalleCotizacion("Validez", "${validezCtrl.text} días"),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _detalleCotizacion("Fecha", fechaCtrl.text),
+                      const SizedBox(height: 12),
+                      _detalleCotizacion("Moneda", monedaSeleccionada),
+                    ],
+                  ),
+                ),
               ],
             ),
 
             const SizedBox(height: 30),
 
             // Tabla productos
-            _tablaProductos(),
+            _tablaProductosVista(),
 
             const SizedBox(height: 30),
 
-            // Totales
+            // Total
             Align(
               alignment: Alignment.centerRight,
               child: Container(
@@ -838,13 +809,24 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
                   color: TemaApp.grisClaro,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _filaTotalVista("Subtotal:", subtotal),
-                    const SizedBox(height: 8),
-                    _filaTotalVista("IGV (18%):", igv),
-                    const Divider(height: 24),
-                    _filaTotalVista("TOTAL:", total, esTotal: true),
+                    const Text(
+                      "TOTAL:",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "${_obtenerSimboloMoneda()} ${total.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: TemaApp.azulOscuro,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -874,32 +856,184 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
                 ),
               ),
             ],
+
+            // MEDIOS DE PAGO
+            const SizedBox(height: 40),
+            const Text(
+              "MEDIOS DE PAGO",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: TemaApp.azulOscuro,
+              ),
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "BANCO DE CRÉDITO DEL PERÚ (BCP)",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _textoPequeno("Cuenta Soles: 19491893576091"),
+                      _textoPequeno("CCI Soles: 002194918935760910"),
+                      _textoPequeno("Cuenta Dólares: 19491893582197"),
+                      _textoPequeno("CCI Dólares: 002194918935821979"),
+                      _textoPequeno("Titular: NOVOTRACE S.A.C."),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "BBVA PERÚ",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _textoPequeno("Cuenta: 001103233602005998"),
+                      _textoPequeno("Moneda: Soles (PEN)"),
+                      _textoPequeno("Titular: NOVOTRACE S.A.C."),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Footer azul
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: TemaApp.azulOscuro,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Column(
+                    children: [
+                      const Text(
+                        'novotrace.com.pe',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        emailCtrl.text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _bloqueInfo(String titulo, List<String> lineas) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          titulo,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: TemaApp.azulElectrico,
+  Widget _tablaProductosVista() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: TemaApp.azulOscuro,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: _HeaderTabla("PRODUCTO")),
+                Expanded(flex: 1, child: _HeaderTabla("CANT.")),
+                Expanded(flex: 2, child: _HeaderTabla("TOTAL")),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        ...lineas.map(
-          (linea) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(linea, style: const TextStyle(fontSize: 13)),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: productos.length,
+            itemBuilder: (context, index) {
+              final p = productos[index];
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        p['nombre'],
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        p['cantidad'].toString(),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        "${_obtenerSimboloMoneda()} ${p['total'].toStringAsFixed(2)}",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _textoPequeno(String texto) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Text(
+        texto,
+        style: const TextStyle(fontSize: 10, color: TemaApp.grisOscuro),
+      ),
     );
   }
 
@@ -924,23 +1058,23 @@ class _NuevaCotizacionState extends State<NuevaCotizacion> {
     );
   }
 
-  Widget _filaTotalVista(String label, double valor, {bool esTotal = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _bloqueInfo(String titulo, List<String> lineas) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: TextStyle(
-            fontSize: esTotal ? 16 : 14,
-            fontWeight: esTotal ? FontWeight.bold : FontWeight.normal,
+          titulo,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: TemaApp.azulElectrico,
           ),
         ),
-        Text(
-          "S/ ${valor.toStringAsFixed(2)}",
-          style: TextStyle(
-            fontSize: esTotal ? 20 : 14,
-            fontWeight: esTotal ? FontWeight.bold : FontWeight.w600,
-            color: esTotal ? TemaApp.azulOscuro : null,
+        const SizedBox(height: 8),
+        ...lineas.map(
+          (linea) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(linea, style: const TextStyle(fontSize: 13)),
           ),
         ),
       ],
